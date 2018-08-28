@@ -1,0 +1,771 @@
+package com.longcheercontact.com.contact;
+
+import android.Manifest;
+import android.app.Activity;
+import android.content.ContentResolver;
+import android.content.ContentUris;
+import android.content.ContentValues;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.net.Uri;
+import android.os.AsyncTask;
+import android.os.Build;
+import android.os.Bundle;
+import android.provider.CallLog;
+import android.provider.ContactsContract;
+import android.provider.Telephony;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
+import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.HashMap;
+public class MainActivity extends AppCompatActivity {
+    private  String TAG="TestMainActivity";
+    private Button delteButton,addButton;
+    private String[] permissionArray=new String[]{
+            Manifest.permission.READ_CONTACTS,
+            Manifest.permission.WRITE_CONTACTS,
+            Manifest.permission.READ_PHONE_NUMBERS,
+            Manifest.permission.RECEIVE_SMS,
+            Manifest.permission.RECEIVE_MMS,
+            Manifest.permission.READ_SMS
+    };
+    private boolean isAdd=true;
+    private ChinneseName chinneseName=new ChinneseName();
+    private String name;
+    private EditText editText;
+    private ProgressBar progressBar;
+    private ContentResolver resolver;
+    private TextView DisText,topicText,description,Distext;
+    private  int  ContactNum=0;
+    private ImageView imageView;
+    private    Cursor phoneCursor;
+    private int param=0;
+    private int mMode=1;
+    private TextView logo,displayContentText;
+    ContentValues values = new ContentValues();
+    int tt=1;
+    private String phoneNumber;
+    private boolean mIsMessage=true;
+    private boolean mIsContact=true;
+    Object localObject1 = null;
+    Object localObject2 =null;
+    private HashMap<String,Object> hashMap=new HashMap<String,Object>();
+    private static final String[] PHONES_PROJECTION = new String[] {
+            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+            ContactsContract.CommonDataKinds.Phone.NUMBER, ContactsContract.Contacts.Photo.PHOTO_ID,
+            ContactsContract.CommonDataKinds.Phone.CONTACT_ID };
+    private boolean first=true;
+    private boolean mMesage1=true;
+    private boolean mCaiXin=true;
+    private boolean mIsDeleteDuoyu=true;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        verifyStoragePermissions(MainActivity.this,permissionArray);//放在点击按钮adb
+        initView();
+
+       // getSMSMessage();
+//        if()
+    }
+    @Override
+    protected void onResume(){
+        super.onResume();
+        //DisContatcNum();
+    }
+    private void DisContatcNum() {
+        ContactNum=getPhoneContactNum();
+        DisText.setText( "当前手机联系人个数为:"+ContactNum);
+    }
+    private void initView() {
+        editText=findViewById(R.id.editText);
+        DisText=findViewById(R.id.Distext);
+        progressBar=findViewById(R.id.progressBar);
+        imageView=findViewById(R.id.image);
+        delteButton=findViewById(R.id.deleteButton);
+        addButton=findViewById(R.id.addButton);
+        logo=findViewById(R.id.textView5);
+        displayContentText=findViewById(R.id.display);
+        topicText=findViewById(R.id.topic);
+        description=findViewById(R.id.description);
+        DisText=findViewById(R.id.Distext);
+    }
+    public void addContactButton(View view){
+        switch (mMode){
+            case 1:  {MutilContactTask addmutiContact=new MutilContactTask();
+                isAdd=true;
+                addButton.setClickable(false);
+                logo.setVisibility(View.VISIBLE);
+                param= getEditText();
+                addmutiContact.execute(param);
+                progressBar.setMax(param);
+                if(param>100){
+                    dayin("正在进行中，请耐心等待");
+                }
+            }
+                break;
+            case 2: {
+                {   mIsContact = false;
+                    dayin("请稍等");
+                    MessageTask messageTask=new MessageTask();
+                    messageTask.execute(1);
+                }
+
+            }break;
+            case 3:{
+                MessageTask messageTask=new MessageTask();
+                messageTask.execute(0);
+
+            }break;
+
+        }
+
+    }
+    public void onDeleteButton(View view){
+        switch (mMode){
+            case 1:
+            {
+                progressBar.setMax(param);
+        delteButton.setClickable(false);
+        isAdd=false;
+        param=getEditText();
+        Log.i(TAG, "onDeleteButton: "+getEditText());
+        MutilContactTask mutilContactTask=new MutilContactTask();
+        mutilContactTask.execute(1);
+        dayin("正在进行删除");
+        Log.i(TAG, "onDeleteButton: mutilContactTask.execute()"+getEditText());
+            }
+                break;
+            case 3:{
+                MessageTask messageTask=new MessageTask();
+                messageTask.execute(2);
+              //  dayin("全部删除");
+            }break;
+            case 2:
+            {
+                MessageTask messageTask=new MessageTask();
+                messageTask.execute(2);
+              //  dayin("全部删除");
+            }
+             break;
+        }
+//
+    }
+    public void dayin(String string) {
+        Toast.makeText(getApplicationContext(), string, Toast.LENGTH_SHORT).show();
+    }
+    private void addContact() {
+        Uri uri = Uri.parse("content://com.android.contacts/raw_contacts");
+        values.clear();
+        name=chinneseName.getName();
+        //添加姓名
+        long contactId = ContentUris.parseId(resolver.insert(uri, values));
+        uri = Uri.parse("content://com.android.contacts/data");
+        values.put("raw_contact_id", contactId);
+        values.put("mimetype", "vnd.android.cursor.item/name");
+        values.put("data2", name);
+        resolver.insert(uri, values);
+        // 添加电话
+        values.clear();
+        values.put("raw_contact_id", contactId);
+        values.put("mimetype", "vnd.android.cursor.item/phone_v2");
+        values.put("data2", "2");
+        String phone=chinneseName.getPhone();
+        values.put("data1",phone );
+        resolver.insert(uri, values);
+        // 添加email
+        values.clear();
+        values.put("raw_contact_id", contactId);
+//        values.put("mimetype", "vnd.android.cursor.item/email_v2");
+        values.put("mimetype", "vnd.android.cursor.item/organization");
+        values.put("data2", "2");
+        values.put("data1", "龙旗科技股份有限公司");
+//        values.put("data1", chinneseName.getEmail());
+        resolver.insert(uri, values);
+        values.clear();
+        values.put("raw_contact_id", contactId);
+        values.put("mimetype", "vnd.android.cursor.item/email_v2");
+        values.put("data2", "2");
+        values.put("data1", chinneseName.getEmail());
+        resolver.insert(uri, values);
+        System.gc();
+    }
+    public int getEditText() {
+        String text=editText.getText().toString();
+        if(text.equals("")){dayin("输入不能为空");return 0;}
+        editText.setSelection(text.length());
+        param=Integer.valueOf(text);
+        return param;
+    }
+    public class MessageTask extends AsyncTask <Integer, Integer, String>{
+
+        @Override
+        protected String doInBackground(Integer... integers) {
+            final int numMessage = Integer.parseInt(editText.getText().toString());
+           if (integers[0].equals(0)){
+                    for (int i = 1; i <=numMessage; i++) {
+                        if(mCaiXin){
+                            caiXInTest(0);}else {
+                            caiXInTest(i);
+                        }
+                    }
+           }
+           if (integers[0].equals(1)){
+
+                       for (int i = 1; i <=numMessage; i++) {
+                           if(mMesage1){
+                               duanXin(0);}else {
+                               duanXin(i);
+                           }
+                       }
+           }
+           if (integers[0].equals(2)){
+                  deleteSMS(numMessage);return "deleteSMS";
+           }
+            return "cai_xin";
+        }
+        @Override
+        protected void onPostExecute(String s) {
+          //  getSMSMessage();
+            dayin("温馨提示您，完成啦");
+           // DisText.setPadding(80,0,0,0);
+            DisText.setText("当前有"+getSMSMessage()+"条信息");
+
+      //    deleteCaiXinMessage();
+
+          //  super.onPostExecute(s);
+        }
+    }
+    public class MutilContactTask extends AsyncTask <Integer, Integer, String>{
+        private int number;
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+        }
+        @Override
+        protected String doInBackground(Integer... params) {
+            Log.i(TAG, "doInBackground: test");
+          resolver  = getContentResolver();
+// 获取手机联系人
+            phoneCursor= resolver.query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI,PHONES_PROJECTION,
+                    null, null, null);
+            if(isAdd){
+                ContactNum=0;
+                number=params[0].intValue();
+                //resolver= getContentResolver();
+                for(int i=0;i<number;i++)
+                { addContact();
+                publishProgress(i+1);
+                System.gc();
+                }
+            }else {
+                try {
+                    deleteContact();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                Log.i(TAG+"else", "doInBackground: delete");
+            }
+            return "ok";
+        }
+        @Override
+        protected void onProgressUpdate(Integer... values) {
+            isAdd=true;
+            super.onProgressUpdate(values);
+            progressBar.setProgress(values[0]);
+            DisText.setText("\n当前手机联系人个数为:正在处理中");
+            Log.i(TAG, "onProgressUpdate: ");
+        }
+        @Override
+        protected void onPostExecute(String s) {
+            super.onPostExecute(s);
+            imageView.setVisibility(View.VISIBLE);
+            logo.setVisibility(View.INVISIBLE);
+            DisText.setSelected(false);
+            DisContatcNum();
+            dayin("通讯录已经处理完成");
+            DisContatcNum();
+            addButton.setClickable(true);
+            delteButton.setClickable(true);
+            resolver=null;
+            phoneCursor=null;
+            System.gc();
+            Log.i(TAG, "onPostExecute: after gc");
+        }
+    }
+        private int getPhoneContactNum() {
+        ContactNum=0;
+         resolver = getContentResolver();
+         String[] projecttion=new String[]{ContactsContract.CommonDataKinds.Phone.NUMBER};
+          phoneCursor = resolver.query(ContactsContract.Contacts.CONTENT_URI,null, null, null, null);
+        if (phoneCursor != null) {
+            while (phoneCursor.moveToNext()) {
+                ContactNum++;
+               //修改为1几为姓名
+                Log.i(TAG, "Phonenumber:4 "+phoneNumber);
+            }
+        }
+               return  ContactNum;
+    }
+    private void deleteContact()throws Exception {
+        isAdd=false;
+        int a=0;
+        try {
+        ContentResolver resolver = getContentResolver();
+        Cursor phoneCursor = resolver.query(ContactsContract.Contacts.CONTENT_URI, null, null, null, null);
+        while(phoneCursor.moveToNext()){
+            //获取ID
+         //   Log.i(TAG, "deleteContact: ");
+            a++;
+            progressBar.setProgress(a);
+            if(a>param) {
+                Log.i(TAG, "deleteContact:if a> param");
+                resolver =null;phoneCursor=null;System.gc();
+                break;
+            }
+            String rawId = phoneCursor.getString(phoneCursor.getColumnIndex(ContactsContract.Contacts._ID));
+            //删除
+            String where = ContactsContract.Data._ID  + " =?";
+            String[] whereparams = new String[]{rawId};
+            getContentResolver().delete(ContactsContract.RawContacts.CONTENT_URI, where, whereparams);
+    }
+        }
+        catch (Exception e){
+            Log.i(TAG, "deleteContact: "+e.toString());
+            deleteContact();
+        }
+        Log.i(TAG, "deleteContact:return");
+}
+public void inContact(View view){
+   // insertCallLog("10086", "3600", "2", "3");
+//    Intent intent = new Intent(Intent.ACTION_PICK);
+//    intent.setType(ContactsContract.Contacts.CONTENT_TYPE);
+//    startActivity(intent);
+}
+public void verifyStoragePermissions(Activity activity, String[] permissionArray ){
+    int permission = ActivityCompat.checkSelfPermission(activity,
+            Manifest.permission.READ_CONTACTS);
+    if (permission != PackageManager.PERMISSION_GRANTED) {
+        ActivityCompat.requestPermissions(activity, permissionArray, 100);
+    }
+    }
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode==100){
+            DisContatcNum();
+        }
+        Log.i(TAG, "onRequestPermissionsResult: "+permissions[0]);
+    }
+   public void clickContactNum(View view){
+       DisContatcNum();
+     dayin("test");
+   }
+    private void caiXInTest(int caiXinMessage) {
+//        new Thread()
+//        {
+//            public void run()
+            {
+                Log.i(TAG, "run: begin run method test");
+                Object localObject1 =3;
+//                if (Build.VERSION.SDK_INT >= 19)
+//                {
+//                    Log.i(TAG, "run: SDK_INT>=19");
+//                    localObject1 = new Intent("android.provider.Telephony.ACTION_CHANGE_DEFAULT");
+//                    ((Intent)localObject1).putExtra("package", MainActivity.this.getApplicationContext().getPackageName());
+//                    MainActivity.this.startActivity((Intent)localObject1);
+//                }
+                int i = 0;
+//                while (i < j)
+                {
+                    Log.i(TAG, "run: TAG insert a contentvalues");
+                    Object localObject2 = new ContentValues();
+                Object localObject3 = new ContentValues();
+                if(caiXinMessage==0){
+                    ((ContentValues)localObject2).put("address", "15767972720" );}
+                    else {
+                    ((ContentValues)localObject2).put("address", "1576797272"+caiXinMessage );
+                }
+                    ((ContentValues)localObject2).put("read", Integer.valueOf(1));
+                    ((ContentValues)localObject2).put("status", Integer.valueOf(-1));
+                    ((ContentValues)localObject2).put("type", Integer.valueOf(1));
+                    ((ContentValues)localObject2).put("body", "龙旗彩信测试-----骆敏明" );
+                    localObject1 = null;
+                    {
+                        Log.i(TAG, "run: try sms");
+                       if(first) {
+                           if(mIsMessage) first = false;
+                           localObject2 = MainActivity.this.getContentResolver().insert(Uri.parse("content://sms/inbox"), (ContentValues) localObject2);
+                           //localObject3=localObject2;
+                           Log.i(TAG, "caiXInTest: "+localObject2);
+                           hashMap.put("1", localObject2);
+                         //  deleteCaiXinMessage();//添加删除短信
+                       }
+                        Uri uridel=(Uri)hashMap.get("1");
+                        Log.i(MainActivity.this.TAG, "insert result Uri content://sms/inbox:" + localObject2);
+                        localObject1 = hashMap.get("1");
+                        long l = ContentUris.parseId((Uri) localObject1);//空指针
+                        Log.i(MainActivity.this.TAG, "sms  ContentUris parseId smsid:" + String.valueOf(l));
+                        localObject1 = MainActivity.this.getContentResolver();
+                        localObject2 = Uri.parse("content://sms/inbox");
+                        String str = Long.toString(l);
+                        localObject1 = ((ContentResolver)localObject1).query((Uri)localObject2, new String[] { "_id", "thread_id" }, "_id=?", new String[] { str }, "date desc");
+                        ((Cursor)localObject1).moveToLast();
+                        try{
+                        localObject1 = Long.valueOf(((Cursor)localObject1).getLong(((Cursor)localObject1).getColumnIndex("thread_id")));
+                        Log.i(MainActivity.this.TAG, "sms threadid:" + String.valueOf(localObject1));
+                        Log.i(MainActivity.this.TAG, "insert PDU");
+                        localObject2 = new ContentValues();
+                        ((ContentValues)localObject2).put("thread_id", (Long)localObject1);
+                        ((ContentValues)localObject2).put("msg_box", Integer.valueOf(1));
+                        ((ContentValues)localObject2).put("read", Integer.valueOf(1));
+                        ((ContentValues)localObject2).put("ct_t", "application/vnd.wap.multipart.related");
+                        ((ContentValues)localObject2).put("m_type", Integer.valueOf(132));
+                        ((ContentValues)localObject2).put("v", Integer.valueOf(18));
+                        ((ContentValues)localObject2).put("text_only", Integer.valueOf(1));
+                        ((ContentValues)localObject2).put("tr_id", "T14d5046b9e" + String.valueOf(i));
+                        Log.i(TAG, "run: tr_id+put");
+                      //  getContentResolver().delete(uridel,null,null);//
+                    }
+                    catch (Exception e){
+                            e.toString();
+                            e.printStackTrace(); //开启发生报错，异常出现
+                        Log.i(TAG, "run: "+e);
+                        }
+                    }
+
+//                    catch (Exception localException2)
+                    {
+                        Log.i(TAG, "run: Exception"+localObject2.toString());
+                        try
+                        {
+                            Log.i(TAG, "run: MMS /inbox Uri parse");
+                            localObject1 = MainActivity.this.getContentResolver().insert(Uri.parse("content://mms/inbox"), (ContentValues)localObject2);
+                            Log.i(MainActivity.this.TAG, "insert MMS PDU content://mms/inbox Uri:" + localObject1);
+                            long l = ContentUris.parseId((Uri)localObject1);
+                            Log.i(MainActivity.this.TAG, "insert MMS address table ");
+                            localObject1 = new ContentValues();
+                            ((ContentValues)localObject1).put("msg_id", Long.valueOf(l));
+                            ((ContentValues)localObject1).put("address", "15767972720");
+                            ((ContentValues)localObject1).put("type", "137");
+                            ((ContentValues)localObject1).put("charset", "106");
+                            MainActivity.this.getContentResolver().insert(Uri.parse("content://mms/" + l + "/addr"), (ContentValues)localObject1);
+                            ((ContentValues)localObject1).put("type", "151");
+                            ((ContentValues)localObject1).put("address", "15767972914" );
+                            MainActivity.this.getContentResolver().insert(Uri.parse("content://mms/" + l + "/addr"), (ContentValues)localObject1);
+                            Log.i(MainActivity.this.TAG, "insert mms part table :" + String.valueOf(l));
+                            localObject1 = MainActivity.this.createPartRecord(-1, "application/smil", "smil.xml",
+                                    "<siml>", "smil.xml",
+                                    null, "<smil><head><layout>" +
+                                            "<root-layout width=\"320px\" height=\"480px\"/>" +
+                                            "<region id=\"Text\" left=\"0\" top=\"320\" " +
+                                            "width=\"500px\" height=\"160px\" fit=\"meet\"/><region id=\"Image\" left=\"0\" top=\"0\" " +
+                                            "width=\"320px\" height=\"320px\" " +
+                                            "fit=\"meet\"/>" +
+                                            "</layout>" +
+                                            "</head><body><par dur=\"5000ms\"><text src=\"text_0.txt\" region=\"Text\"/>" +
+                                            "<video src=\"test1.mp4\" region=\"video\"/></par></body></smil>");
+                            localObject2 = MainActivity.this.createPartRecord(0, "video/mp4", "test.mp4", "<test>",
+                                    "test1.mp4", null, null);
+                           // localObject2 = MainActivity.this.createPartRecord(0, "image/jpeg", "image50k_test.jpeg", "<50k_test>", "image50k_test.jpeg", null, null);
+                            ((ContentValues)localObject1).put("mid", Long.valueOf(l));
+                            ((ContentValues)localObject2).put("mid", Long.valueOf(l));
+                            Log.i(TAG, "run: this is midput2");
+                           // MainActivity.this.getContentResolver().insert(Uri.parse("content://mms/" + l + "/part"), (ContentValues)localObject1);
+                            localObject1 = MainActivity.this.getContentResolver().insert(Uri.parse("content://mms/" + l + "/part"), (ContentValues)localObject2);
+                            MainActivity.this.Copydata1((Uri)localObject1);
+
+                            localObject1 = new Intent("android.provider.Telephony.ACTION_CHANGE_DEFAULT");
+                            ((Intent)localObject1).putExtra("package", MainActivity.this.getApplicationContext().getPackageName());
+                            MainActivity.this.startActivity((Intent)localObject1);
+                            i += 1;
+                            Log.i(TAG, "run: finish MMS test it is ok");
+                        }
+                        catch (Exception localException1)
+                        {Log.i(TAG, "run: Exception localException1"+localException1.toString());}
+                    }
+                }
+            }
+        };
+//    }
+    private ContentValues createPartRecord(int paramInt, String paramString1, String paramString2, String paramString3, String paramString4, String paramString5, String paramString6)
+    {
+        ContentValues localContentValues = new ContentValues();
+        localContentValues.put("seq", Integer.valueOf(paramInt));
+        localContentValues.put("ct", paramString1);
+        localContentValues.put("name", paramString2);
+        localContentValues.put("cid", paramString3);
+        localContentValues.put("cl", paramString4);
+        if (paramString5 != null) {
+            localContentValues.put("_data", paramString5);
+        }
+        if (paramString6 != null) {
+            localContentValues.put("text", paramString6);
+        }
+        return localContentValues;
+    }
+    private void Copydata1(Uri paramUri) {
+        Log.i(TAG, "Copydata: first");
+        InputStream localInputStream = null;
+        int i,len;
+        byte[] byte1=new byte[1024];
+        byte[] byte2=new byte[1024];
+        OutputStream localOutputStream= null;
+        try {
+            localOutputStream = getContentResolver().openOutputStream(paramUri);
+        } catch (FileNotFoundException e) {
+            Log.i(TAG, "Copydata: contentResolver().openOutStream");
+            e.printStackTrace();
+        }
+        //  localInputStream = getResources().getAssets().open("playphone.jpg");
+        localInputStream = getResources().openRawResource(R.raw.test1);
+        try {
+            Log.i(TAG, "Copydata: localInputStream.available()"+localInputStream.available());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        Log.i(TAG, "Copydata: localInputsream");
+        try {
+            while ((len = localInputStream.read(byte2)) != -1){
+                Log.i(TAG, "Copydata: read");
+                localOutputStream.write(byte2);
+            }
+            Log.i(TAG, "Copydata: len写入字节");
+        } catch (IOException e) {
+            Log.i(TAG, "Copydata: IOEXception2");
+            e.printStackTrace();
+        }
+    }
+    public void duanXin(int number){
+        ContentValues contentValues=new ContentValues();
+        if (number==0){ contentValues.put("address","07523050888");}
+        else {contentValues.put("address","07523050888"+number);}
+       contentValues.put("read", Integer.valueOf(1));
+       contentValues.put("status", Integer.valueOf(-1));
+       contentValues.put("type", Integer.valueOf(1));
+       contentValues.put("body", "此短信来自龙旗测试部的测试，使用自动短信生成工具"+
+               "短信的测试结果第"+tt+"次");
+       tt++;
+       MainActivity.this.getContentResolver().insert(Uri.parse("content://sms/inbox"), contentValues);
+       Intent intent1 = new Intent( Telephony.Sms.Intents.ACTION_CHANGE_DEFAULT);
+       Log.i(TAG, "clickContactNum: "+Telephony.Sms.getDefaultSmsPackage(getApplicationContext()));
+    }
+  void changeDefaultAPP(){
+      Log.i(TAG, "changeDefaultAPP: ");
+      tt=1;
+      if (Build.VERSION.SDK_INT >= 19)
+      {  Log.i(TAG, "run: SDK_INT>=19");
+          localObject1 = new Intent("android.provider.Telephony.ACTION_CHANGE_DEFAULT");
+          //com.google.android.apps.messaging
+
+          ((Intent)localObject1).putExtra("package", MainActivity.this.getApplicationContext().getPackageName());
+          MainActivity.this.startActivity((Intent)localObject1);
+      }
+  }
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main2, menu);
+        return true;
+    }
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.action_settings) {
+           mMode=1;
+           mIsMessage=true;
+            first=true;
+            topicText.setText("手机通讯录工具");
+            DisContatcNum();
+           displayContentText.setText("你想导入或（删除）联系人的个数");
+            description.setText("说明：通讯录联系人随机生成，邮件对应联系人拼音名称");
+            return true;
+        }
+        if (id == R.id.messages) {
+            topicText.setText("手机短信自动生成工具");
+            mMode=2;
+            description.setText("说明：生成需求数量短信，对应一个手机号");
+            DisText.setText("当前有"+getSMSMessage()+"条短信");
+            mMesage1=true;
+            mIsMessage=true;
+            changeDefaultAPP();
+            displayContentText.setText("输入你想要添加短信数量");
+            displayContentText.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
+          //  dayin("messages");
+            return true;
+        }
+        if (id == R.id.messages1) {//短信2
+            mMode=2;
+            topicText.setText("手机短信自动生成工具");
+            mIsMessage=true;
+            DisText.setText("当前有"+getSMSMessage()+"条短信");
+            topicText.setText("手机短信自动生成工具");
+            description.setText("说明：生成需求数量短信，对应不同号码");
+            changeDefaultAPP();
+            mMesage1=false;
+            return true;
+        }
+        if (id == R.id.caiXin) {
+            mMode=3;
+            topicText.setText("手机彩信自动生成工具");
+            description.setText("说明：生成单个号码，一个号码多条彩信");
+            mCaiXin=true;
+            DisText.setText("当前有"+getSMSMessage()+"条彩信");
+            mIsMessage=true;//修改为true
+            first=true;
+            displayContentText.setText("添加彩信数量");
+           changeDefaultAPP();
+            return true;
+        }
+        if (id == R.id.caiXin1) {
+            mMode=3;
+            mIsMessage=false;
+            mCaiXin=false;
+            first=true;
+            dayin("彩信");
+            displayContentText.setText("添加彩信数量");
+            DisText.setText("当前有"+getSMSMessage()+"条彩信");
+            topicText.setText("手机彩信自动生成工具");
+            changeDefaultAPP();
+            description.setText("说明：生成多个号码，每个号码一条彩信");
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+public int getSMSMessage(){
+        ContentResolver cr=getContentResolver();
+    Cursor cur=null;
+        int messagenum=0;
+       // String[] projection=new String[];
+        if(mMode==2){
+      cur =cr.query(Uri.parse("content://sms/"),null,null,null,"date desc");}
+        else{
+            cur =cr.query(Uri.parse("content://mms/"),null,null,null,"date desc");
+        }
+        while (cur.moveToNext() ){
+            messagenum++;
+        }
+    Log.i(TAG, "getSMSMessage: "+messagenum);
+        return messagenum;
+}
+    public void deleteSMS(int deleteNum)
+    {Uri uri;
+    int deleteOK=0;
+        try
+        {
+            // 准备系统短信收信箱的uri地址
+            if(mMode==2){
+            uri= Uri.parse("content://sms/inbox");}
+            else {
+                 uri = Uri.parse("content://mms/");}
+
+            // 收信箱m
+            // 查询收信箱里所有的短信
+            String[] projection = new String[] { "_id", "address", "person", "body", "date", "type" ,"thread_id"};//"_id", "address", "person",, "date", "type
+            String where = " address = '10001'";
+            Cursor curs =    getContentResolver().query(uri, null, null,null, "date desc");
+            if(curs.moveToFirst())
+            {
+                do{
+                    // String phone =
+                    // isRead.getString(isRead.getColumnIndex("address")).trim();//获取发信人
+                   // String body =curs.getString(curs.getColumnIndex("body")).trim();// 获取信息内容
+             //       if (body.contains(smscontent))
+                    {
+                        int id = curs.getInt(curs.getColumnIndex("_id"));
+                        if (mMode==2)
+                        getContentResolver().delete(Uri.parse("content://sms/"),"_id=?",new String[]{ String.valueOf(id)});
+                        else {
+                            getContentResolver().delete(Uri.parse("content://mms/"),"_id=?",new String[]{ String.valueOf(id)});
+                        }
+                        deleteOK++;
+                    }
+                }while (curs.moveToNext() && deleteNum>deleteOK );
+            }
+            curs.close();
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+        DisText.setText("当前有"+getSMSMessage()+"条信息");
+    }
+public void deleteCaiXinMessage(){
+    {
+        try
+        {
+            // 准备系统短信收信箱的uri地址
+            Uri uri = Uri.parse("content://sms/inbox");// 收信箱
+            // 查询收信箱里所有的短信
+            String[] projection = new String[] { "_id", "address", "person", "body", "date", "type" ,"thread_id"};//"_id", "address", "person",, "date", "type
+          //  String where = " address = '10001'";
+            Cursor curs =    getContentResolver().query(uri, projection, null,null, "date desc");
+            if(curs.moveToFirst())
+            {
+                    // isRead.getString(isRead.getColumnIndex("address")).trim();//获取发信人
+                    String body =curs.getString(curs.getColumnIndex("body")).trim();// 获取信息内容
+                    if (body.contains("彩信测试----骆敏明"))
+                    {
+                        int id = curs.getInt(curs.getColumnIndex("_id"));
+                        getContentResolver().delete(Uri.parse("content://sms/"),"_id=?",new String[]{ String.valueOf(id)});
+                    }
+            }
+            curs.close();
+        }
+        catch (Exception e)
+        {
+            e.printStackTrace();
+        }
+}
+    }
+
+    private void insertCallLog(String number, String duration, String type, String isNew) {
+        //在通讯录查询是否存在该联系人，若存在则把名字信息也插入到通话记录中
+        String name = "";
+        String[] cols = {ContactsContract.PhoneLookup.DISPLAY_NAME};
+        //设置查询条件
+        String selection = ContactsContract.CommonDataKinds.Phone.NUMBER + "='"+number+"'";
+        Cursor cursor = getContentResolver().query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                cols, selection, null, null);
+        int nameFieldColumnIndex = cursor.getColumnIndex(ContactsContract.PhoneLookup.DISPLAY_NAME);
+        if (cursor.getCount()>0){
+            cursor.moveToFirst();
+            name = cursor.getString(nameFieldColumnIndex);
+        }
+        cursor.close();
+        ContentValues values = new ContentValues();
+        values.put(CallLog.Calls.CACHED_NAME, name);
+        values.put(CallLog.Calls.NUMBER, number);
+        values.put(CallLog.Calls.DATE, System.currentTimeMillis() );
+        values.put(CallLog.Calls.DURATION, duration);
+        values.put(CallLog.Calls.TYPE, type);
+        values.put(CallLog.Calls.NEW, isNew);
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.WRITE_CALL_LOG}, 1000);
+        }
+        getContentResolver().insert(CallLog.Calls.CONTENT_URI, values);
+    }
+}
+
+
+
+
+

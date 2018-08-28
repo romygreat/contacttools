@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/action_settings"
+        android:orderInCategory="100"
+        android:title="通讯录"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/messages"
+        android:orderInCategory="100"
+        android:title="短信"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/messages1"
+        android:orderInCategory="100"
+        android:title="短信1"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/caiXin"
+        android:orderInCategory="100"
+        android:title="彩信"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/caiXin1"
+        android:orderInCategory="100"
+        android:title="彩信1"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/more"
+        android:orderInCategory="100"
+        android:title="自定义"
+        app:showAsAction="never" />
+</menu>
